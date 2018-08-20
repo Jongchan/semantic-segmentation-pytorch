@@ -146,7 +146,8 @@ def main(args):
     net_encoder = builder.build_encoder(
         arch=args.arch_encoder,
         fc_dim=args.fc_dim,
-        weights=args.weights_encoder)
+        weights=args.weights_encoder,
+        cbam=args.cbam)
     net_decoder = builder.build_decoder(
         arch=args.arch_decoder,
         fc_dim=args.fc_dim,
@@ -280,6 +281,8 @@ if __name__ == '__main__':
     parser.add_argument('--disp_iter', type=int, default=20,
                         help='frequency to display')
 
+    parser.add_argument('--cbam', action='store_true')
+
     args = parser.parse_args()
     print("Input arguments:")
     for key, val in vars(args).items():
@@ -302,6 +305,7 @@ if __name__ == '__main__':
     args.id += '-epoch' + str(args.num_epoch)
     args.id += '-decay' + str(args.weight_decay)
     args.id += '-fixBN' + str(args.fix_bn)
+    args.id += '-CBAM' + str(int(args.cbam))
     print('Model ID: {}'.format(args.id))
 
     args.ckpt = os.path.join(args.ckpt, args.id)

@@ -5,6 +5,7 @@ import torch.nn as nn
 import math
 from lib.nn import SynchronizedBatchNorm2d
 
+from .cbam import AttentionGate
 try:
     from urllib import urlretrieve
 except ImportError:
@@ -29,7 +30,7 @@ def conv3x3(in_planes, out_planes, stride=1):
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, cbam=False):
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = SynchronizedBatchNorm2d(planes)
@@ -38,6 +39,11 @@ class BasicBlock(nn.Module):
         self.bn2 = SynchronizedBatchNorm2d(planes)
         self.downsample = downsample
         self.stride = stride
+        self.cbam=cbam
+        if self.cbam:
+            gate_channel = planes
+            reduction_rate = 16
+            self.gate = AttentionGate( gate_channel, size_reduction_ratio=2, reduction_ratio=reduction_rate, version='v3')
 
     def forward(self, x):
         residual = x
@@ -51,6 +57,8 @@ class BasicBlock(nn.Module):
 
         if self.downsample is not None:
             residual = self.downsample(x)
+        if self.cbam:
+            out = self.gate( out )
 
         out += residual
         out = self.relu(out)
@@ -61,7 +69,7 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, cbam=False):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = SynchronizedBatchNorm2d(planes)
@@ -73,6 +81,11 @@ class Bottleneck(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
+        self.cbam=cbam
+        if self.cbam:
+            gate_channel = planes * 4
+            reduction_rate = 16
+            self.gate = AttentionGate( gate_channel, size_reduction_ratio=2, reduction_ratio=reduction_rate, version='v3')
 
     def forward(self, x):
         residual = x
@@ -90,6 +103,8 @@ class Bottleneck(nn.Module):
 
         if self.downsample is not None:
             residual = self.downsample(x)
+        if self.cbam:
+            out = self.gate( out )
 
         out += residual
         out = self.relu(out)
@@ -99,18 +114,23 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, num_classes=1000):
-        self.inplanes = 128
+    def __init__(self, block, layers, num_classes=1000, cbam=False):
+        self.inplanes = 64
         super(ResNet, self).__init__()
-        self.conv1 = conv3x3(3, 64, stride=2)
+        self.cbam=cbam
+        #self.conv1 = conv3x3(3, 64, stride=2)
+        #self.bn1 = SynchronizedBatchNorm2d(64)
+        #self.relu1 = nn.ReLU(inplace=True)
+        #self.conv2 = conv3x3(64, 64)
+        #self.bn2 = SynchronizedBatchNorm2d(64)
+        #self.relu2 = nn.ReLU(inplace=True)
+        #self.conv3 = conv3x3(64, 128)
+        #self.bn3 = SynchronizedBatchNorm2d(128)
+        #self.relu3 = nn.ReLU(inplace=True)
+        #self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.conv1 = nn.Conv2d(3,64,kernel_size=7,stride=2,padding=3,bias=False)#conv3x3(3, 64, stride=2)
         self.bn1 = SynchronizedBatchNorm2d(64)
         self.relu1 = nn.ReLU(inplace=True)
-        self.conv2 = conv3x3(64, 64)
-        self.bn2 = SynchronizedBatchNorm2d(64)
-        self.relu2 = nn.ReLU(inplace=True)
-        self.conv3 = conv3x3(64, 128)
-        self.bn3 = SynchronizedBatchNorm2d(128)
-        self.relu3 = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.layer1 = self._make_layer(block, 64, layers[0])
@@ -138,10 +158,10 @@ class ResNet(nn.Module):
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
+        layers.append(block(self.inplanes, planes, stride, downsample, cbam=self.cbam))
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
+            layers.append(block(self.inplanes, planes, cbam=self.cbam))
 
         return nn.Sequential(*layers)
 
@@ -195,7 +215,20 @@ def resnet50(pretrained=False, **kwargs):
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
     if pretrained:
-        model.load_state_dict(load_url(model_urls['resnet50']), strict=False)
+        if model.cbam:
+            state_dict_orig = torch.load('./pretrained_models/RESNET50_CBAM.pth')
+            state_dict = model.state_dict()
+            for key in state_dict_orig.keys():
+                state_dict[key.replace('module.', '')] = state_dict_orig[key]
+            model.load_state_dict(state_dict)
+        else:
+            state_dict_orig = torch.load('./pretrained_models/RESNET50_BASELINE.pth')
+            state_dict = model.state_dict()
+            for key in state_dict_orig.keys():
+                state_dict[key.replace('module.', '')] = state_dict_orig[key]
+            model.load_state_dict(state_dict)
+    #if pretrained:
+    #    #model.load_state_dict(load_url(model_urls['resnet50']), strict=False)
     return model
 
 
@@ -207,7 +240,20 @@ def resnet101(pretrained=False, **kwargs):
     """
     model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
     if pretrained:
-        model.load_state_dict(load_url(model_urls['resnet101']), strict=False)
+        if model.cbam:
+            state_dict_orig = torch.load('./pretrained_models/RESNET101_CBAM.pth')
+            state_dict = model.state_dict()
+            for key in state_dict_orig.keys():
+                state_dict[key.replace('module.', '')] = state_dict_orig[key]
+            model.load_state_dict(state_dict)
+        else:
+            state_dict_orig = torch.load('./pretrained_models/RESNET101_BASELINE.pth')
+            state_dict = model.state_dict()
+            for key in state_dict_orig.keys():
+                state_dict[key.replace('module.', '')] = state_dict_orig[key]
+            model.load_state_dict(state_dict)
+    #if pretrained:
+    #    model.load_state_dict(load_url(model_urls['resnet101']), strict=False)
     return model
 
 # def resnet152(pretrained=False, **kwargs):

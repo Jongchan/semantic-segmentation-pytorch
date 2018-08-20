@@ -71,46 +71,46 @@ class ModelBuilder():
         #elif classname.find('Linear') != -1:
         #    m.weight.data.normal_(0.0, 0.0001)
 
-    def build_encoder(self, arch='resnet50_dilated8', fc_dim=512, weights=''):
+    def build_encoder(self, arch='resnet50_dilated8', fc_dim=512, weights='', cbam=False):
         pretrained = True if len(weights) == 0 else False
         if arch == 'resnet34':
             raise NotImplementedError
-            orig_resnet = resnet.__dict__['resnet34'](pretrained=pretrained)
+            orig_resnet = resnet.__dict__['resnet34'](pretrained=pretrained, cbam=cbam)
             net_encoder = Resnet(orig_resnet)
         elif arch == 'resnet34_dilated8':
             raise NotImplementedError
-            orig_resnet = resnet.__dict__['resnet34'](pretrained=pretrained)
+            orig_resnet = resnet.__dict__['resnet34'](pretrained=pretrained, cbam=cbam)
             net_encoder = ResnetDilated(orig_resnet,
                                         dilate_scale=8)
         elif arch == 'resnet34_dilated16':
             raise NotImplementedError
-            orig_resnet = resnet.__dict__['resnet34'](pretrained=pretrained)
+            orig_resnet = resnet.__dict__['resnet34'](pretrained=pretrained, cbam=cbam)
             net_encoder = ResnetDilated(orig_resnet,
                                         dilate_scale=16)
         elif arch == 'resnet50':
-            orig_resnet = resnet.__dict__['resnet50'](pretrained=pretrained)
+            orig_resnet = resnet.__dict__['resnet50'](pretrained=pretrained, cbam=cbam)
             net_encoder = Resnet(orig_resnet)
         elif arch == 'resnet50_dilated8':
-            orig_resnet = resnet.__dict__['resnet50'](pretrained=pretrained)
+            orig_resnet = resnet.__dict__['resnet50'](pretrained=pretrained, cbam=cbam)
             net_encoder = ResnetDilated(orig_resnet,
                                         dilate_scale=8)
         elif arch == 'resnet50_dilated16':
-            orig_resnet = resnet.__dict__['resnet50'](pretrained=pretrained)
+            orig_resnet = resnet.__dict__['resnet50'](pretrained=pretrained, cbam=cbam)
             net_encoder = ResnetDilated(orig_resnet,
                                         dilate_scale=16)
         elif arch == 'resnet101':
-            orig_resnet = resnet.__dict__['resnet101'](pretrained=pretrained)
+            orig_resnet = resnet.__dict__['resnet101'](pretrained=pretrained, cbam=cbam)
             net_encoder = Resnet(orig_resnet)
         elif arch == 'resnet101_dilated8':
-            orig_resnet = resnet.__dict__['resnet101'](pretrained=pretrained)
+            orig_resnet = resnet.__dict__['resnet101'](pretrained=pretrained, cbam=cbam)
             net_encoder = ResnetDilated(orig_resnet,
                                         dilate_scale=8)
         elif arch == 'resnet101_dilated16':
-            orig_resnet = resnet.__dict__['resnet101'](pretrained=pretrained)
+            orig_resnet = resnet.__dict__['resnet101'](pretrained=pretrained, cbam=cbam)
             net_encoder = ResnetDilated(orig_resnet,
                                         dilate_scale=16)
         elif arch == 'resnext101':
-            orig_resnext = resnext.__dict__['resnext101'](pretrained=pretrained)
+            orig_resnext = resnext.__dict__['resnext101'](pretrained=pretrained, cbam=cbam)
             net_encoder = Resnet(orig_resnext) # we can still use class Resnet
         else:
             raise Exception('Architecture undefined!')
@@ -182,12 +182,12 @@ class Resnet(nn.Module):
         self.conv1 = orig_resnet.conv1
         self.bn1 = orig_resnet.bn1
         self.relu1 = orig_resnet.relu1
-        self.conv2 = orig_resnet.conv2
-        self.bn2 = orig_resnet.bn2
-        self.relu2 = orig_resnet.relu2
-        self.conv3 = orig_resnet.conv3
-        self.bn3 = orig_resnet.bn3
-        self.relu3 = orig_resnet.relu3
+        #self.conv2 = orig_resnet.conv2
+        #self.bn2 = orig_resnet.bn2
+        #self.relu2 = orig_resnet.relu2
+        #self.conv3 = orig_resnet.conv3
+        #self.bn3 = orig_resnet.bn3
+        #self.relu3 = orig_resnet.relu3
         self.maxpool = orig_resnet.maxpool
         self.layer1 = orig_resnet.layer1
         self.layer2 = orig_resnet.layer2
@@ -198,8 +198,8 @@ class Resnet(nn.Module):
         conv_out = []
 
         x = self.relu1(self.bn1(self.conv1(x)))
-        x = self.relu2(self.bn2(self.conv2(x)))
-        x = self.relu3(self.bn3(self.conv3(x)))
+        #x = self.relu2(self.bn2(self.conv2(x)))
+        #x = self.relu3(self.bn3(self.conv3(x)))
         x = self.maxpool(x)
 
         x = self.layer1(x); conv_out.append(x);
